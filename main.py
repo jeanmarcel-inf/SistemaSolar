@@ -15,9 +15,9 @@ earth_self = 0.0
 
 cam_angle_x = 10.0
 cam_angle_y = 180.0
-cam_distance = 25.0
+cam_distance = 100.0
 mouse_sensitivity = 0.2
-zoom_speed = 1.0
+zoom_speed = 2.0
 
 
 # ======================
@@ -136,6 +136,26 @@ def create_program(vsrc, fsrc):
     return pid
 
 
+def draw_skybox(texture_id):
+    """Desenha uma esfera invertida com textura de estrelas ao fundo."""
+    glPushMatrix()
+    glDisable(GL_LIGHTING)
+    glDisable(GL_DEPTH_TEST)
+    glDisable(GL_CULL_FACE)
+    glEnable(GL_TEXTURE_2D)
+
+    glBindTexture(GL_TEXTURE_2D, texture_id)
+    q = gluNewQuadric()
+    gluQuadricTexture(q, GL_TRUE)
+    gluQuadricOrientation(q, GLU_INSIDE)  # Inverte a esfera (olhar de dentro)
+    gluSphere(q, 200.0, 64, 64)  # Raio bem grande
+    
+    glEnable(GL_DEPTH_TEST)
+    glEnable(GL_CULL_FACE)
+    glEnable(GL_LIGHTING)
+    glPopMatrix()
+
+
 def draw_orbit(radius, color=(0.3, 0.3, 0.3), segments=128):
     """Desenha uma linha circular representando a órbita de um planeta."""
     was_program = glGetIntegerv(GL_CURRENT_PROGRAM)
@@ -193,6 +213,7 @@ def main():
     tex_saturn = load_texture("textures/8k_saturn.jpg")
     tex_uranus = load_texture("textures/2k_uranus.jpg")
     tex_neptune = load_texture("textures/2k_neptune.jpg")
+    tex_stars = load_texture("textures/8k_stars_milky_way.jpg")
 
     # Shader
     program = create_program(VERT_SRC, FRAG_SRC)
@@ -251,6 +272,9 @@ def main():
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
         set_camera()
+
+        if tex_stars:
+            draw_skybox(tex_stars)
 
         # === Luz (Sol) ===
         light_world = [0.0, 0.0, 0.0, 1.0]
