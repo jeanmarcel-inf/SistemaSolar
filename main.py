@@ -136,9 +136,33 @@ def create_program(vsrc, fsrc):
     return pid
 
 
-# ======================
-# Programa principal
-# ======================
+def draw_orbit(radius, color=(0.3, 0.3, 0.3), segments=128):
+    """Desenha uma linha circular representando a órbita de um planeta."""
+    was_program = glGetIntegerv(GL_CURRENT_PROGRAM)
+    tex_enabled = glIsEnabled(GL_TEXTURE_2D)
+
+    glUseProgram(0)
+    if tex_enabled:
+        glDisable(GL_TEXTURE_2D)
+
+    glColor3fv(color)
+    glBegin(GL_LINE_LOOP)
+    for i in range(segments):
+        a = 2.0 * math.pi * i / segments
+        x = math.cos(a) * radius
+        z = math.sin(a) * radius
+        glVertex3f(x, 0.0, z)
+    glEnd()
+
+    glColor3f(1.0, 1.0, 1.0)
+
+    if tex_enabled:
+        glEnable(GL_TEXTURE_2D)
+    if was_program:
+        glUseProgram(was_program)
+
+
+
 def main():
     global angle_earth, angle_mars, angle_moon, earth_self
     global cam_angle_x, cam_angle_y, cam_distance
@@ -158,11 +182,17 @@ def main():
     glClearColor(0.0, 0.0, 0.0, 1.0)
 
     # Texturas
-    tex_sun = load_texture("sol.jpg")
-    tex_earth = load_texture("earth.jpg")
-    tex_norm = load_texture("normal_map_earth.tif")
-    tex_mars = load_texture("8k_mars.jpg")
-    tex_moon = load_texture("8k_moon.jpg")
+    tex_sun = load_texture("textures/sol.jpg")
+    tex_earth = load_texture("textures/earth.jpg")
+    tex_norm = load_texture("textures/normal_map_earth.tif")
+    tex_moon = load_texture("textures/8k_moon.jpg")
+    tex_mars = load_texture("textures/8k_mars.jpg")
+    tex_mercury = load_texture("textures/8k_mercury.jpg")
+    tex_venus = load_texture("textures/8k_venus_surface.jpg")
+    tex_jupiter = load_texture("textures/8k_jupiter.jpg")
+    tex_saturn = load_texture("textures/8k_saturn.jpg")
+    tex_uranus = load_texture("textures/2k_uranus.jpg")
+    tex_neptune = load_texture("textures/2k_neptune.jpg")
 
     # Shader
     program = create_program(VERT_SRC, FRAG_SRC)
@@ -177,7 +207,33 @@ def main():
     clock = pygame.time.Clock()
     running = True
 
-    # ::INFO - Dá zoom
+    # Ângulos individuais
+    angles = {
+        "mercury": 0.0,
+        "venus": 0.0,
+        "earth": 0.0,
+        "mars": 0.0,
+        "jupiter": 0.0,
+        "saturn": 0.0,
+        "uranus": 0.0,
+        "neptune": 0.0,
+        "moon": 0.0
+    }
+    self_rot = 0.0
+
+    # Dados dos planetas (raio de órbita, tamanho, velocidade orbital, textura)
+    planets = [
+        ("mercury", 3.5, 0.25, 1.6, tex_mercury),
+        ("venus", 5.5, 0.45, 1.2, tex_venus),
+        ("earth", 8.0, 0.8, 0.8, tex_earth),
+        ("mars", 13.0, 0.6, 0.5, tex_mars),
+        ("jupiter", 20.0, 1.5, 0.3, tex_jupiter),
+        ("saturn", 26.0, 1.2, 0.25, tex_saturn),
+        ("uranus", 31.0, 0.9, 0.2, tex_uranus),
+        ("neptune", 36.0, 0.85, 0.18, tex_neptune)
+    ]
+
+    # Loop principal
     while running:
         for e in pygame.event.get():
             if e.type == QUIT:
@@ -196,7 +252,7 @@ def main():
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
         set_camera()
 
-        # === Calcula posição da luz (Sol) em view space ===
+        # === Luz (Sol) ===
         light_world = [0.0, 0.0, 0.0, 1.0]
         mv_view = glGetDoublev(GL_MODELVIEW_MATRIX)
         light_view = [
@@ -205,7 +261,7 @@ def main():
             mv_view[2][0]*light_world[0] + mv_view[2][1]*light_world[1] + mv_view[2][2]*light_world[2] + mv_view[2][3]
         ]
 
-        # 🌞 Sol (iluminador)
+        # 🌞 Sol
         glDisable(GL_LIGHTING)
         if tex_sun:
             glBindTexture(GL_TEXTURE_2D, tex_sun)
@@ -215,39 +271,61 @@ def main():
         else:
             draw_sphere_color(2.0, (1, 1, 0))
 
-        # 🌍 Terra (shader + normal map)
+
+        # 🌀 ÓRBITAS DOS PLANETAS
+        glEnable(GL_BLEND)
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+        for name, orbit_radius, radius, orbit_speed, tex in planets:
+            draw_orbit(orbit_radius, color=(0.6, 0.6, 0.6))  # Cor neutra e discreta
+        glDisable(GL_BLEND)
+
+        # 🪐 Planetas
+        for name, orbit_radius, radius, orbit_speed, tex in planets:
+            glPushMatrix()
+            angles[name] += orbit_speed
+            glRotatef(angles[name], 0, 1, 0)
+            glTranslatef(orbit_radius, 0.0, 0.0)
+            if name == "earth":
+                glRotatef(self_rot, 0, 1, 0)
+                glUseProgram(program)
+                glUniform1i(loc_diffuse, 0)
+                glUniform1i(loc_normalmap, 1)
+                glUniform3f(loc_lightpos, *light_view)
+                glActiveTexture(GL_TEXTURE0)
+                glBindTexture(GL_TEXTURE_2D, tex)
+                glActiveTexture(GL_TEXTURE1)
+                glBindTexture(GL_TEXTURE_2D, tex_norm)
+                q = gluNewQuadric()
+                gluQuadricTexture(q, GL_TRUE)
+                gluSphere(q, radius, 64, 64)
+                glUseProgram(0)
+                glActiveTexture(GL_TEXTURE1)
+                glBindTexture(GL_TEXTURE_2D, 0)
+                glActiveTexture(GL_TEXTURE0)
+                glBindTexture(GL_TEXTURE_2D, 0)
+            else:
+                if tex:
+                    glColor3f(1.0, 1.0, 1.0)
+                    glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE)
+
+                    glBindTexture(GL_TEXTURE_2D, tex)
+                    q = gluNewQuadric()
+                    gluQuadricTexture(q, GL_TRUE)
+                    gluSphere(q, radius, 64, 64)
+
+                    glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE)
+                else:
+                    draw_sphere_color(radius, (0.6, 0.6, 0.6))
+
+            glPopMatrix()
+
+        # 🌕 Lua orbitando a Terra
         glPushMatrix()
-        glRotatef(angle_earth, 0, 1, 0)
+        glRotatef(angles["earth"], 0, 1, 0)
         glTranslatef(8.0, 0.0, 0.0)
-        glRotatef(earth_self, 0, 1, 0)
-
-        glUseProgram(program)
-        glUniform1i(loc_diffuse, 0)
-        glUniform1i(loc_normalmap, 1)
-        glUniform3f(loc_lightpos, *light_view)
-
-        glActiveTexture(GL_TEXTURE0)
-        glBindTexture(GL_TEXTURE_2D, tex_earth)
-        glActiveTexture(GL_TEXTURE1)
-        glBindTexture(GL_TEXTURE_2D, tex_norm)
-
-        q = gluNewQuadric()
-        gluQuadricTexture(q, GL_TRUE)
-        gluSphere(q, 0.8, 64, 64)
-
-        glUseProgram(0)
-        glActiveTexture(GL_TEXTURE1)
-        glBindTexture(GL_TEXTURE_2D, 0)
-        glActiveTexture(GL_TEXTURE0)
-        glBindTexture(GL_TEXTURE_2D, 0)
-        glPopMatrix()
-
-        # 🌕 Lua
-        glPushMatrix()
-        glRotatef(angle_earth, 0, 1, 0)
-        glTranslatef(8.0, 0.0, 0.0)
-        glRotatef(angle_moon, 0, 1, 0)
-        glTranslatef(2.0, 0.0, 0.0)
+        angles["moon"] += 2.0
+        glRotatef(angles["moon"], 0, 1, 0)
+        glTranslatef(1.5, 0.0, 0.0)
         if tex_moon:
             glBindTexture(GL_TEXTURE_2D, tex_moon)
             q = gluNewQuadric()
@@ -257,29 +335,15 @@ def main():
             draw_sphere_color(0.3, (0.8, 0.8, 0.8))
         glPopMatrix()
 
-        # 🔴 Marte
-        glPushMatrix()
-        glRotatef(angle_mars, 0, 1, 0)
-        glTranslatef(13.0, 0.0, 0.0)
-        if tex_mars:
-            glBindTexture(GL_TEXTURE_2D, tex_mars)
-            q = gluNewQuadric()
-            gluQuadricTexture(q, GL_TRUE)
-            gluSphere(q, 0.6, 64, 64)
-        else:
-            draw_sphere_color(0.6, (1.0, 0.3, 0.0))
-        glPopMatrix()
-
-        # === Animações ===
-        angle_earth += 0.5
-        earth_self += 1.0
-        angle_moon += 2.0
-        angle_mars += 0.3
+        # === Rotação própria da Terra ===
+        self_rot += 1.0
 
         pygame.display.flip()
         clock.tick(60)
 
     pygame.quit()
+
+    
 
 
 if __name__ == "__main__":
