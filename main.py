@@ -253,7 +253,7 @@ def main():
     pygame.init()
     size = (900, 700)
     pygame.display.set_mode(size, DOUBLEBUF | OPENGL)
-    pygame.display.set_caption("Sistema Solar 3D - PyOpenGL + Normal Map + Luz Direcional")
+    pygame.display.set_caption("Sistema Solar 3D - PyOpenGL + Shader + Transparência")
 
     # OpenGL setup
     glMatrixMode(GL_PROJECTION)
@@ -305,6 +305,7 @@ def main():
     ]
 
     while running:
+        # Eventos
         for e in pygame.event.get():
             if e.type == QUIT:
                 running = False
@@ -312,16 +313,18 @@ def main():
                 if e.button == 4: cam_distance = max(5.0, cam_distance - zoom_speed)
                 if e.button == 5: cam_distance = min(100.0, cam_distance + zoom_speed)
 
-        # Câmera
+        # Movimento da câmera
         mx, my = pygame.mouse.get_pos()
         dx, dy = mx - last_mouse[0], my - last_mouse[1]
         last_mouse = (mx, my)
         cam_angle_y += dx * mouse_sensitivity
         cam_angle_x = max(-89.0, min(89.0, cam_angle_x - dy * mouse_sensitivity))
 
+        # Limpa tela
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
         set_camera()
 
+        # Skybox
         if tex_stars:
             draw_skybox(tex_stars)
 
@@ -337,10 +340,12 @@ def main():
         # Sol
         glDisable(GL_LIGHTING)
         if tex_sun:
+            glEnable(GL_TEXTURE_2D)
             glBindTexture(GL_TEXTURE_2D, tex_sun)
             q = gluNewQuadric()
             gluQuadricTexture(q, GL_TRUE)
             gluSphere(q, 2.0, 64, 64)
+            glBindTexture(GL_TEXTURE_2D, 0)
         else:
             draw_sphere_color(2.0, (1,1,0))
 
@@ -350,57 +355,60 @@ def main():
 
         # Planetas
         for name, orbit_radius, radius, orbit_speed, tex in planets:
-            glPushMatrix()
             angles[name] += orbit_speed
+            glPushMatrix()
             glRotatef(angles[name], 0,1,0)
             glTranslatef(orbit_radius, 0.0, 0.0)
             glRotatef(90, 1,0,0)  # corrige mapeamento
 
+            # Terra com shader
             if name == "earth":
                 glRotatef(self_rot,0,1,0)
                 glUseProgram(program)
                 glUniform1i(glGetUniformLocation(program,"uDiffuse"),0)
                 glUniform1i(glGetUniformLocation(program,"uNormalMap"),1)
                 glUniform3f(glGetUniformLocation(program,"uLightPosV"),*light_view)
+
                 glActiveTexture(GL_TEXTURE0)
                 glBindTexture(GL_TEXTURE_2D, tex)
                 glActiveTexture(GL_TEXTURE1)
                 glBindTexture(GL_TEXTURE_2D, tex_norm)
+
                 q = gluNewQuadric()
                 gluQuadricTexture(q, GL_TRUE)
                 gluSphere(q, radius, 64, 64)
+
                 glUseProgram(0)
                 glActiveTexture(GL_TEXTURE1)
                 glBindTexture(GL_TEXTURE_2D, 0)
                 glActiveTexture(GL_TEXTURE0)
                 glBindTexture(GL_TEXTURE_2D, 0)
 
+            # Saturno
             elif name == "saturn":
-                # Saturno
+                glPushMatrix()
+                glRotatef(26.7,1,0,0)
                 if tex:
-                    glColor3f(1,1,1)
+                    glUseProgram(0)
+                    glEnable(GL_TEXTURE_2D)
                     glBindTexture(GL_TEXTURE_2D, tex)
                     q = gluNewQuadric()
                     gluQuadricTexture(q, GL_TRUE)
                     gluSphere(q, radius, 64,64)
                     glBindTexture(GL_TEXTURE_2D,0)
+                draw_saturn_rings(radius*1.2,radius*2.5, tex_saturn_ring)
+                glPopMatrix()
 
-                # Anéis inclinados com transparência
-                glRotatef(26.7,1,0,0)
-                glEnable(GL_BLEND)
-                glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
-                draw_saturn_rings(radius*1.2,radius*2.5,tex_saturn_ring)
-                glDisable(GL_BLEND)
-
+            # Outros planetas
             else:
                 if tex:
-                    glColor3f(1,1,1)
-                    glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE)
+                    glUseProgram(0)
+                    glEnable(GL_TEXTURE_2D)
                     glBindTexture(GL_TEXTURE_2D, tex)
                     q = gluNewQuadric()
                     gluQuadricTexture(q, GL_TRUE)
                     gluSphere(q, radius,64,64)
-                    glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE)
+                    glBindTexture(GL_TEXTURE_2D,0)
                 else:
                     draw_sphere_color(radius,(0.6,0.6,0.6))
 
@@ -410,19 +418,22 @@ def main():
         glPushMatrix()
         glRotatef(angles["earth"],0,1,0)
         glTranslatef(8.0,0,0)
-        angles["moon"]+=2.0
+        angles["moon"] += 2.0
         glRotatef(angles["moon"],0,1,0)
         glTranslatef(1.5,0,0)
         if tex_moon:
+            glUseProgram(0)
+            glEnable(GL_TEXTURE_2D)
             glBindTexture(GL_TEXTURE_2D, tex_moon)
             q = gluNewQuadric()
             gluQuadricTexture(q, GL_TRUE)
             gluSphere(q,0.3,64,64)
+            glBindTexture(GL_TEXTURE_2D, 0)
         else:
             draw_sphere_color(0.3,(0.8,0.8,0.8))
         glPopMatrix()
 
-        self_rot+=1.0
+        self_rot += 1.0
         pygame.display.flip()
         clock.tick(60)
 
