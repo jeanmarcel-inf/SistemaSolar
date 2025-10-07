@@ -177,6 +177,7 @@ def main():
     clock = pygame.time.Clock()
     running = True
 
+    # ::INFO - Dá zoom
     while running:
         for e in pygame.event.get():
             if e.type == QUIT:
