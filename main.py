@@ -427,7 +427,7 @@ def main():
             glBindTexture(GL_TEXTURE_2D, tex_moon)
             q = gluNewQuadric()
             gluQuadricTexture(q, GL_TRUE)
-            gluSphere(q,0.3,64,64)
+            gluSphere(q,0.07,64,64)
             glBindTexture(GL_TEXTURE_2D, 0)
         else:
             draw_sphere_color(0.3,(0.8,0.8,0.8))
