@@ -247,7 +247,7 @@ def draw_saturn_rings(inner_radius, outer_radius, texture_id=None, segments=128)
 
 
 def main():
-    global angle_earth, angle_mars, angle_moon, earth_self
+    global angle_earth, angle_mars, angle_moon, earth_self, sun_self
     global cam_angle_x, cam_angle_y, cam_distance
 
     pygame.init()
@@ -339,6 +339,7 @@ def main():
 
         # Sol
         glDisable(GL_LIGHTING)
+        glRotatef(sun_self, 0,1,0)
         if tex_sun:
             glEnable(GL_TEXTURE_2D)
             glBindTexture(GL_TEXTURE_2D, tex_sun)
@@ -348,6 +349,8 @@ def main():
             glBindTexture(GL_TEXTURE_2D, 0)
         else:
             draw_sphere_color(2.0, (1,1,0))
+
+        sun_self += 0.2
 
         # Órbitas
         for name, orbit_radius, _, _, _ in planets:
